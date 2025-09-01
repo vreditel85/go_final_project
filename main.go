@@ -1,1 +1,5 @@
-package go_final_project
+package main
+
+func main() {
+
+}
