@@ -10,7 +10,7 @@ import (
 
 var db *sql.DB
 
-const schema = `
+const schema string = `
 CREATE TABLE scheduler (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     date CHAR(8) NOT NULL DEFAULT "",
@@ -18,15 +18,17 @@ CREATE TABLE scheduler (
     comment TEXT,
     repeat VARCHAR(50)
 );
-CREATE INDEX IF NOT EXISTS idx_scheduler_date ON scheduler(date);
 `
 
 func Init(dbFile string) error {
 	// Проверяем существование файла базы данных
 	_, err := os.Stat(dbFile)
 	install := os.IsNotExist(err)
+	if install {
+		fmt.Printf("Файл %s не существует, создаем новую базу данных\n", dbFile)
+	}
 
-	// Открываем базу данных
+	// Открываем (или создаем) базу данных
 	db, err = sql.Open("sqlite", dbFile)
 	if err != nil {
 		return fmt.Errorf("ошибка открытия базы данных: %v", err)
@@ -42,23 +44,25 @@ func Init(dbFile string) error {
 		if _, err := db.Exec(schema); err != nil {
 			return fmt.Errorf("ошибка создания схемы: %v", err)
 		}
-		fmt.Printf("База данных создана и инициализирована: %s\n", dbFile)
+		fmt.Printf("Таблица scheduler создана в базе данных: %s\n", dbFile)
 	} else {
 		fmt.Printf("База данных подключена: %s\n", dbFile)
 	}
 
 	return nil
 }
+
 func main() {
-	// Инициализация базы данных в начале main()
-	if err := Init("scheduler.db"); err != nil {
+	// Инициализация базы данных
+	dbFile := "scheduler.db"
+	if err := Init(dbFile); err != nil {
 		log.Fatalf("Ошибка инициализации базы данных: %v", err)
 	}
 
 	// Закрытие базы данных при завершении программы
 	defer func() {
 		if db != nil {
-			_ = db.Close()
+			db.Close()
 			fmt.Println("База данных закрыта")
 		}
 	}()
