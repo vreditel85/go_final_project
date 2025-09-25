@@ -1,0 +1,109 @@
+package api
+
+import (
+	"encoding/json"
+	"fmt"
+	"github.com/vreditel85/go_final_project/pkg/db"
+	"net/http"
+	"time"
+)
+
+func taskHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	// обработка других методов будет добавлена на следующих шагах
+	case http.MethodPost:
+		addTaskHandler(w, r)
+	}
+}
+
+// addTaskHandle обрабатывает запрос на добавление задачи
+func addTaskHandler(w http.ResponseWriter, r *http.Request) {
+	// Проверяем метод запроса
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Декодируем JSON из тела запроса
+	var task db.Task
+	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+		http.Error(w, "Неверный формат JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем, что поле Title не пустое
+	if task.Title == "" {
+		http.Error(w, "Поле 'title' не может быть пустым", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем и корректируем дату
+	if err := checkDate(&task); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Добавляем задачу в базу данных
+	id, err := db.AddTask(&task)
+	if err != nil {
+		http.Error(w, "Ошибка при добавлении задачи: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Возвращаем идентификатор добавленной задачи
+	response := map[string]int64{"id": id}
+	writeJSON(w, response)
+}
+
+// checkDate проверяет и корректирует дату задачи
+func checkDate(task *db.Task) error {
+	now := time.Now()
+
+	// Если дата пустая, устанавливаем текущую дату
+	if task.Date == "" {
+		task.Date = now.Format("20060102")
+	}
+
+	// Проверяем корректность формата даты
+	t, err := time.Parse("20060102", task.Date)
+	if err != nil {
+		return fmt.Errorf("некорректный формат даты: %s", task.Date)
+	}
+
+	// Если определено правило повторения
+	if task.Repeat != "" {
+		// Проверяем корректность правила и получаем следующую дату
+		next, err := NextDate(now, task.Date, task.Repeat)
+		if err != nil {
+			return fmt.Errorf("некорректное правило повторения: %v", err)
+		}
+		// Обновляем дату на следующую
+		task.Date = next
+	} else {
+		// Если правила повторения нет, проверяем что дата не в прошлом
+		if !afterNow(t, now) {
+			return fmt.Errorf("дата не может быть в прошлом")
+		}
+	}
+
+	return nil
+}
+
+// afterNow проверяет, что дата t после now (включая сегодняшний день)
+func afterNow(t time.Time, now time.Time) bool {
+	// Приводим к началу дня для корректного сравнения дат без времени
+	t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	return !t.Before(now)
+}
+
+// writeJSON записывает данные в ответ в формате JSON
+func writeJSON(w http.ResponseWriter, data any) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, "Ошибка при кодировании JSON: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
