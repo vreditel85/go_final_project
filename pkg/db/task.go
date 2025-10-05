@@ -169,3 +169,72 @@ func UpdateTask(task *Task) error {
 
 	return nil
 }
+
+// DeleteTask удаляет задачу по идентификатору
+func DeleteTask(id string) error {
+	// Проверяем, что база данных инициализирована
+	if DB == nil {
+		return fmt.Errorf("база данных не инициализирована")
+	}
+
+	// Проверяем, что идентификатор не пустой
+	if id == "" {
+		return fmt.Errorf("не указан идентификатор")
+	}
+
+	// SQL запрос для удаления задачи
+	query := `DELETE FROM scheduler WHERE id = ?`
+
+	// Выполняем запрос
+	result, err := DB.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("ошибка при удалении задачи: %v", err)
+	}
+
+	// Проверяем, что запись была удалена
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("ошибка при проверке удаления: %v", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("задача не найдена")
+	}
+
+	return nil
+}
+
+// UpdateDate обновляет только дату задачи
+func UpdateDate(id string, newDate string) error {
+	// Проверяем, что база данных инициализирована
+	if DB == nil {
+		return fmt.Errorf("база данных не инициализирована")
+	}
+
+	// Проверяем обязательные поля
+	if id == "" {
+		return fmt.Errorf("идентификатор не может быть пустым")
+	}
+	if newDate == "" {
+		return fmt.Errorf("дата не может быть пустой")
+	}
+
+	// SQL запрос для обновления даты задачи
+	query := `UPDATE scheduler SET date = ? WHERE id = ?`
+
+	// Выполняем запрос
+	result, err := DB.Exec(query, newDate, id)
+	if err != nil {
+		return fmt.Errorf("ошибка при обновлении даты задачи: %v", err)
+	}
+
+	// Проверяем, что запись была обновлена
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("ошибка при проверке обновления: %v", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("задача не найдена")
+	}
+
+	return nil
+}

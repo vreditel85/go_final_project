@@ -132,6 +132,33 @@ func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{})
 }
 
+// deleteTaskHandler обрабатывает запрос на удаление задачи
+func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("panic recovered in deleteTaskHandler: %v", rec)
+			jsonError(w, "Internal server error", http.StatusInternalServerError)
+		}
+	}()
+
+	// Получаем параметр id из query string
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		jsonError(w, "Не указан идентификатор", http.StatusBadRequest)
+		return
+	}
+
+	// Удаляем задачу из базы данных
+	err := db.DeleteTask(id)
+	if err != nil {
+		jsonError(w, "Ошибка при удалении задачи: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Возвращаем пустой JSON объект
+	writeJSON(w, map[string]interface{}{})
+}
+
 // checkDate проверяет и корректирует дату задачи
 func checkDate(task *db.Task) error {
 	if task == nil {
