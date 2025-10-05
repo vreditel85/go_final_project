@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 )
 
@@ -94,4 +95,77 @@ func Tasks(limit int) ([]*Task, error) {
 	}
 
 	return tasks, nil
+}
+
+// GetTask возвращает задачу по идентификатору
+func GetTask(id string) (*Task, error) {
+	// Проверяем, что база данных инициализирована
+	if DB == nil {
+		return nil, fmt.Errorf("база данных не инициализирована")
+	}
+
+	// Проверяем, что идентификатор не пустой
+	if id == "" {
+		return nil, fmt.Errorf("не указан идентификатор")
+	}
+
+	var task Task
+	query := `SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?`
+
+	err := DB.QueryRow(query, id).Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("задача не найдена")
+		}
+		return nil, fmt.Errorf("ошибка при получении задачи: %v", err)
+	}
+
+	return &task, nil
+}
+
+// UpdateTask обновляет задачу
+func UpdateTask(task *Task) error {
+	// Проверяем, что база данных инициализирована
+	if DB == nil {
+		return fmt.Errorf("база данных не инициализирована")
+	}
+
+	if task == nil {
+		return fmt.Errorf("task cannot be nil")
+	}
+
+	// Проверяем обязательные поля
+	if task.ID == "" {
+		return fmt.Errorf("идентификатор не может быть пустым")
+	}
+	if task.Date == "" {
+		return fmt.Errorf("дата не может быть пустой")
+	}
+	if task.Title == "" {
+		return fmt.Errorf("заголовок не может быть пустым")
+	}
+
+	// SQL запрос для обновления задачи
+	query := `
+        UPDATE scheduler 
+        SET date = ?, title = ?, comment = ?, repeat = ?
+        WHERE id = ?
+    `
+
+	// Выполняем запрос
+	result, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat, task.ID)
+	if err != nil {
+		return fmt.Errorf("ошибка при обновлении задачи: %v", err)
+	}
+
+	// Проверяем, что запись была обновлена
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("ошибка при проверке обновления: %v", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("задача не найдена")
+	}
+
+	return nil
 }

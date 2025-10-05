@@ -14,7 +14,7 @@ func main() {
 	if err := db.Init(dbFile); err != nil {
 		log.Fatalf("Ошибка инициализации базы данных: %v", err)
 	}
-	//defer db.Close()
+	defer db.Close()
 
 	// Файловый сервер для статических файлов из папки web
 	http.Handle("/", http.StripPrefix("/", http.FileServer(http.Dir("./web"))))

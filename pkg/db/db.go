@@ -72,3 +72,11 @@ func main() {
 
 	fmt.Println("Программа успешно запущена")
 }
+
+// Close закрывает соединение с базой данных
+func Close() error {
+	if DB != nil {
+		return DB.Close()
+	}
+	return nil
+}

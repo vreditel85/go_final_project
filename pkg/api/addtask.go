@@ -11,9 +11,14 @@ import (
 
 func taskHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
-	// обработка других методов будет добавлена на следующих шагах
+	case http.MethodGet:
+		getTaskHandler(w, r)
 	case http.MethodPost:
 		addTaskHandler(w, r)
+	case http.MethodPut:
+		updateTaskHandler(w, r)
+	default:
+		jsonError(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 	}
 }
 
@@ -60,6 +65,71 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	// Возвращаем идентификатор добавленной задачи
 	response := map[string]int64{"id": id}
 	writeJSON(w, response)
+}
+
+// getTaskHandler обрабатывает запрос на получение задачи по ID
+func getTaskHandler(w http.ResponseWriter, r *http.Request) {
+	// Получаем параметр id из query string
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		jsonError(w, "Не указан идентификатор", http.StatusBadRequest)
+		return
+	}
+
+	// Получаем задачу из базы данных
+	task, err := db.GetTask(id)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Возвращаем задачу в формате JSON
+	writeJSON(w, task)
+}
+
+// updateTaskHandler обрабатывает запрос на обновление задачи
+func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("panic recovered in updateTaskHandler: %v", rec)
+			jsonError(w, "Internal server error", http.StatusInternalServerError)
+		}
+	}()
+
+	// Декодируем JSON из тела запроса
+	var task db.Task
+	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+		jsonError(w, "Неверный формат JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем, что поле ID не пустое
+	if task.ID == "" {
+		jsonError(w, "Поле 'id' не может быть пустым", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем, что поле Title не пустое
+	if task.Title == "" {
+		jsonError(w, "Поле 'title' не может быть пустым", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем и корректируем дату
+	if err := checkDate(&task); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Обновляем задачу в базе данных
+	err := db.UpdateTask(&task)
+	if err != nil {
+		jsonError(w, "Ошибка при обновлении задачи: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Возвращаем пустой JSON объект
+	writeJSON(w, map[string]interface{}{})
 }
 
 // checkDate проверяет и корректирует дату задачи
