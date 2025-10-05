@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-var db *sql.DB
+var DB *sql.DB
 
 const schema string = `
 CREATE TABLE scheduler (
@@ -29,19 +29,19 @@ func Init(dbFile string) error {
 	}
 
 	// Открываем (или создаем) базу данных
-	db, err = sql.Open("sqlite", dbFile)
+	DB, err = sql.Open("sqlite", dbFile)
 	if err != nil {
 		return fmt.Errorf("ошибка открытия базы данных: %v", err)
 	}
 
 	// Проверяем соединение с базой данных
-	if err := db.Ping(); err != nil {
+	if err := DB.Ping(); err != nil {
 		return fmt.Errorf("ошибка подключения к базе данных: %v", err)
 	}
 
 	// Если файл не существовал, создаем таблицу и индекс
 	if install {
-		if _, err := db.Exec(schema); err != nil {
+		if _, err := DB.Exec(schema); err != nil {
 			return fmt.Errorf("ошибка создания схемы: %v", err)
 		}
 		fmt.Printf("Таблица scheduler создана в базе данных: %s\n", dbFile)
@@ -61,8 +61,8 @@ func main() {
 
 	// Закрытие базы данных при завершении программы
 	defer func() {
-		if db != nil {
-			db.Close()
+		if DB != nil {
+			DB.Close()
 			fmt.Println("База данных закрыта")
 		}
 	}()

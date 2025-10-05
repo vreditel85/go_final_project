@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/vreditel85/go_final_project/pkg/db"
+	"log"
 	"net/http"
 	"time"
 )
@@ -18,6 +19,12 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 
 // addTaskHandle обрабатывает запрос на добавление задачи
 func addTaskHandler(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("panic recovered: %v", rec)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+	}()
 	// Проверяем метод запроса
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)

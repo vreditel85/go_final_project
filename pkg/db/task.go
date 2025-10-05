@@ -24,7 +24,10 @@ func AddTask(task *Task) (int64, error) {
 	if task.Title == "" {
 		return 0, fmt.Errorf("заголовок не может быть пустым")
 	}
-
+	// Проверяем, что база данных инициализирована
+	if DB == nil {
+		return 0, fmt.Errorf("база данных не инициализирована")
+	}
 	// SQL запрос для вставки задачи
 	query := `
         INSERT INTO scheduler (date, title, comment, repeat) 
@@ -32,7 +35,7 @@ func AddTask(task *Task) (int64, error) {
     `
 
 	// Выполняем запрос
-	result, err := db.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
+	result, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
 	if err != nil {
 		return 0, fmt.Errorf("ошибка при добавлении задачи: %v", err)
 	}
