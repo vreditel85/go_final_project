@@ -57,6 +57,9 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 // checkDate проверяет и корректирует дату задачи
 func checkDate(task *db.Task) error {
+	if task == nil {
+		return fmt.Errorf("task is nil")
+	}
 	now := time.Now()
 
 	// Если дата пустая, устанавливаем текущую дату

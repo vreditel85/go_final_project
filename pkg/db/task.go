@@ -14,6 +14,9 @@ type Task struct {
 
 // AddTask добавляет задачу в таблицу scheduler и возвращает ID добавленной записи
 func AddTask(task *Task) (int64, error) {
+	if task == nil {
+		return 0, fmt.Errorf("task cannot be nil")
+	}
 	// Проверяем обязательные поля
 	if task.Date == "" {
 		return 0, fmt.Errorf("дата не может быть пустой")
