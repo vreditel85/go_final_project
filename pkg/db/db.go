@@ -62,7 +62,10 @@ func main() {
 	// Закрытие базы данных при завершении программы
 	defer func() {
 		if DB != nil {
-			DB.Close()
+			err := DB.Close()
+			if err != nil {
+				return
+			}
 			fmt.Println("База данных закрыта")
 		}
 	}()
