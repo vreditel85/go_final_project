@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"github.com/vreditel85/go_final_project/pkg/db"
 	"net/http"
 )
@@ -30,12 +29,4 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, TasksResp{
 		Tasks: tasks,
 	})
-}
-
-// jsonError возвращает ошибку в формате JSON
-func jsonError(w http.ResponseWriter, message string, statusCode int) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(statusCode)
-	response := map[string]string{"error": message}
-	json.NewEncoder(w).Encode(response)
 }

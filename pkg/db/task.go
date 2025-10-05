@@ -6,7 +6,7 @@ import (
 )
 
 type Task struct {
-	ID      string `json:"id"`
+	ID      int64  `json:"id"` // Изменено на int64
 	Date    string `json:"date"`
 	Title   string `json:"title"`
 	Comment string `json:"comment"`
@@ -135,7 +135,7 @@ func UpdateTask(task *Task) error {
 	}
 
 	// Проверяем обязательные поля
-	if task.ID == "" {
+	if task.ID == 0 {
 		return fmt.Errorf("идентификатор не может быть пустым")
 	}
 	if task.Date == "" {

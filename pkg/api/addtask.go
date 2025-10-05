@@ -18,54 +18,55 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPut:
 		updateTaskHandler(w, r)
 	case http.MethodDelete:
-		deleteTaskHandler(w, r) // Добавлен DELETE метод
+		deleteTaskHandler(w, r)
 	default:
 		jsonError(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 	}
 }
 
-// addTaskHandle обрабатывает запрос на добавление задачи
+// addTaskHandler обрабатывает запрос на добавление задачи
 func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if rec := recover(); rec != nil {
-			log.Printf("panic recovered: %v", rec)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			log.Printf("panic recovered in addTaskHandler: %v", rec)
+			jsonError(w, "Internal server error", http.StatusInternalServerError)
 		}
 	}()
+
 	// Проверяем метод запроса
 	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		jsonError(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 		return
 	}
 
 	// Декодируем JSON из тела запроса
 	var task db.Task
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
-		http.Error(w, "Неверный формат JSON: "+err.Error(), http.StatusBadRequest)
+		jsonError(w, "Неверный формат JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Проверяем, что поле Title не пустое
 	if task.Title == "" {
-		http.Error(w, "Поле 'title' не может быть пустым", http.StatusBadRequest)
+		jsonError(w, "Поле 'title' не может быть пустым", http.StatusBadRequest)
 		return
 	}
 
 	// Проверяем и корректируем дату
 	if err := checkDate(&task); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Добавляем задачу в базу данных
 	id, err := db.AddTask(&task)
 	if err != nil {
-		http.Error(w, "Ошибка при добавлении задачи: "+err.Error(), http.StatusInternalServerError)
+		jsonError(w, "Ошибка при добавлении задачи: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Возвращаем идентификатор добавленной задачи
-	response := map[string]int64{"id": id}
+	// Возвращаем идентификатор добавленной задачи в правильном формате
+	response := map[string]interface{}{"id": id}
 	writeJSON(w, response)
 }
 
@@ -106,7 +107,7 @@ func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Проверяем, что поле ID не пустое
-	if task.ID == "" {
+	if task.ID == 0 {
 		jsonError(w, "Поле 'id' не может быть пустым", http.StatusBadRequest)
 		return
 	}
@@ -174,7 +175,7 @@ func checkDate(task *db.Task) error {
 	}
 
 	// Проверяем корректность формата даты
-	_, err := time.Parse("20060102", task.Date)
+	t, err := time.Parse("20060102", task.Date)
 	if err != nil {
 		return fmt.Errorf("некорректный формат даты: %s", task.Date)
 	}
@@ -190,7 +191,6 @@ func checkDate(task *db.Task) error {
 		task.Date = next
 	} else {
 		// Если правила повторения нет, проверяем что дата не в прошлом
-		t, _ := time.Parse("20060102", task.Date)
 		if !afterNow(t, now) {
 			return fmt.Errorf("дата не может быть в прошлом")
 		}
@@ -209,11 +209,19 @@ func afterNow(t time.Time, now time.Time) bool {
 }
 
 // writeJSON записывает данные в ответ в формате JSON
-func writeJSON(w http.ResponseWriter, data any) {
+func writeJSON(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, "Ошибка при кодировании JSON: "+err.Error(), http.StatusInternalServerError)
+		jsonError(w, "Ошибка при кодировании JSON: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// jsonError возвращает ошибку в формате JSON
+func jsonError(w http.ResponseWriter, message string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(statusCode)
+	response := map[string]string{"error": message}
+	json.NewEncoder(w).Encode(response)
 }
