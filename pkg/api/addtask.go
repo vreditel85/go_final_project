@@ -17,6 +17,8 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 		addTaskHandler(w, r)
 	case http.MethodPut:
 		updateTaskHandler(w, r)
+	case http.MethodDelete:
+		deleteTaskHandler(w, r) // Добавлен DELETE метод
 	default:
 		jsonError(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 	}
@@ -172,7 +174,7 @@ func checkDate(task *db.Task) error {
 	}
 
 	// Проверяем корректность формата даты
-	t, err := time.Parse("20060102", task.Date)
+	_, err := time.Parse("20060102", task.Date)
 	if err != nil {
 		return fmt.Errorf("некорректный формат даты: %s", task.Date)
 	}
@@ -188,6 +190,7 @@ func checkDate(task *db.Task) error {
 		task.Date = next
 	} else {
 		// Если правила повторения нет, проверяем что дата не в прошлом
+		t, _ := time.Parse("20060102", task.Date)
 		if !afterNow(t, now) {
 			return fmt.Errorf("дата не может быть в прошлом")
 		}

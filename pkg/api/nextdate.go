@@ -63,23 +63,25 @@ func nextDateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // NextDate вычисляет следующую дату выполнения задачи
-func NextDate(now time.Time, dstart string, repeat string) (string, error) {
-	// Проверяем, что правило повторения не пустое
+func NextDate(now time.Time, date string, repeat string) (string, error) {
 	if repeat == "" {
 		return "", fmt.Errorf("правило повторения не может быть пустым")
 	}
 
 	// Парсим исходную дату
-	startDate, err := time.Parse("20060102", dstart)
+	startDate, err := time.Parse("20060102", date)
 	if err != nil {
 		return "", fmt.Errorf("некорректный формат исходной даты: %v", err)
 	}
 
-	// Обрабатываем разные правила повторения
+	// Приводим время к началу дня для корректного сравнения
+	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, startDate.Location())
+
 	switch {
 	case strings.HasPrefix(repeat, "d "):
-		// Обработка ежедневного повторения с интервалом
-		parts := strings.Split(repeat, " ")
+		// Ежедневное повторение с интервалом
+		parts := strings.Fields(repeat)
 		if len(parts) != 2 {
 			return "", fmt.Errorf("некорректный формат правила 'd': %s", repeat)
 		}
@@ -89,8 +91,8 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 			return "", fmt.Errorf("некорректное число дней: %s", parts[1])
 		}
 
-		if days <= 0 || days > 400 {
-			return "", fmt.Errorf("число дней должно быть от 1 до 400: %d", days)
+		if days < 1 {
+			return "", fmt.Errorf("интервал дней должен быть положительным числом")
 		}
 
 		// Вычисляем следующую дату
@@ -100,13 +102,100 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 		}
 		return nextDate.Format("20060102"), nil
 
-	case repeat == "y":
-		// Обработка ежегодного повторения
+	case strings.HasPrefix(repeat, "y"):
+		// Ежегодное повторение
 		nextDate := startDate
 		for !nextDate.After(now) {
 			nextDate = nextDate.AddDate(1, 0, 0)
 		}
 		return nextDate.Format("20060102"), nil
+
+	case strings.HasPrefix(repeat, "w "):
+		// Еженедельное повторение в определенные дни недели
+		parts := strings.Fields(repeat)
+		if len(parts) != 2 {
+			return "", fmt.Errorf("некорректный формат правила 'w': %s", repeat)
+		}
+
+		daysOfWeek := strings.Split(parts[1], ",")
+		weekDays := make([]int, 0, len(daysOfWeek))
+		for _, dayStr := range daysOfWeek {
+			day, err := strconv.Atoi(dayStr)
+			if err != nil || day < 1 || day > 7 {
+				return "", fmt.Errorf("некорректный день недели: %s", dayStr)
+			}
+			weekDays = append(weekDays, day)
+		}
+
+		// Начинаем с исходной даты или следующего дня, если исходная дата уже прошла
+		currentDate := startDate
+		if currentDate.Before(now) || currentDate.Equal(now) {
+			currentDate = now.AddDate(0, 0, 1)
+		} else {
+			currentDate = startDate
+		}
+
+		// Ищем ближайший подходящий день недели
+		for i := 0; i < 365; i++ { // ограничиваем поиск годом вперед
+			currentWeekday := int(currentDate.Weekday())
+			if currentWeekday == 0 {
+				currentWeekday = 7 // Воскресенье = 7
+			}
+
+			// Проверяем, подходит ли текущий день недели
+			for _, targetDay := range weekDays {
+				if currentWeekday == targetDay {
+					return currentDate.Format("20060102"), nil
+				}
+			}
+			currentDate = currentDate.AddDate(0, 0, 1)
+		}
+		return "", fmt.Errorf("не удалось найти следующую дату для правила: %s", repeat)
+
+	case strings.HasPrefix(repeat, "m "):
+		// Ежемесячное повторение в определенные дни месяца
+		parts := strings.Fields(repeat)
+		if len(parts) != 2 {
+			return "", fmt.Errorf("некорректный формат правила 'm': %s", repeat)
+		}
+
+		daysOfMonth := strings.Split(parts[1], ",")
+		monthDays := make([]int, 0, len(daysOfMonth))
+		for _, dayStr := range daysOfMonth {
+			day, err := strconv.Atoi(dayStr)
+			if err != nil || day < 1 || day > 31 {
+				return "", fmt.Errorf("некорректный день месяца: %s", dayStr)
+			}
+			monthDays = append(monthDays, day)
+		}
+
+		// Начинаем с now или startDate (что больше)
+		currentDate := startDate
+		if now.After(startDate) {
+			currentDate = now
+		}
+
+		// Ищем ближайший подходящий день месяца
+		for i := 0; i < 366; i++ { // ограничиваем поиск годом вперед
+			currentDay := currentDate.Day()
+
+			// Проверяем, подходит ли текущий день месяца
+			for _, targetDay := range monthDays {
+				if currentDay == targetDay && (currentDate.After(now) || currentDate.Equal(now) && currentDate != startDate) {
+					return currentDate.Format("20060102"), nil
+				}
+			}
+
+			// Если текущий день последний в месяце, проверяем нужно ли переходить на следующий месяц
+			nextDay := currentDate.AddDate(0, 0, 1)
+			if nextDay.Month() != currentDate.Month() {
+				// Переход на следующий месяц
+				currentDate = time.Date(nextDay.Year(), nextDay.Month(), 1, 0, 0, 0, 0, nextDay.Location())
+			} else {
+				currentDate = nextDay
+			}
+		}
+		return "", fmt.Errorf("не удалось найти следующую дату для правила: %s", repeat)
 
 	default:
 		return "", fmt.Errorf("неподдерживаемый формат правила повторения: %s", repeat)
