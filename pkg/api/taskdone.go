@@ -44,9 +44,15 @@ func taskDoneHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		// Если задача периодическая - вычисляем следующую дату и обновляем
-		now := time.Now()
-		nextDate, err := NextDate(now, task.Date, task.Repeat)
+		// Если задача периодическая - вычисляем следующую дату ОТ ДАТЫ ЗАДАЧИ
+		taskTime, err := time.Parse("20060102", task.Date)
+		if err != nil {
+			jsonError(w, "Неверный формат даты задачи", http.StatusInternalServerError)
+			return
+		}
+
+		// Вычисляем следующую дату от даты задачи
+		nextDate, err := NextDate(taskTime, task.Date, task.Repeat)
 		if err != nil {
 			jsonError(w, "Ошибка при вычислении следующей даты: "+err.Error(), http.StatusBadRequest)
 			return

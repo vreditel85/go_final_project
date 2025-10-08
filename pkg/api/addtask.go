@@ -107,7 +107,7 @@ func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Проверяем, что поле ID не пустое
-	if task.ID == 0 {
+	if task.ID == "" {
 		jsonError(w, "Поле 'id' не может быть пустым", http.StatusBadRequest)
 		return
 	}
@@ -167,45 +167,40 @@ func checkDate(task *db.Task) error {
 	if task == nil {
 		return fmt.Errorf("task is nil")
 	}
+
+	// Получаем текущую дату (без времени)
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
 	// Если дата пустая, устанавливаем текущую дату
 	if task.Date == "" {
-		task.Date = now.Format("20060102")
+		task.Date = today.Format("20060102")
 	}
 
 	// Проверяем корректность формата даты
-	t, err := time.Parse("20060102", task.Date)
+	taskDate, err := time.Parse("20060102", task.Date)
 	if err != nil {
 		return fmt.Errorf("некорректный формат даты: %s", task.Date)
 	}
 
-	// Если определено правило повторения
+	// Нормализуем taskDate (убираем время)
+	taskDate = time.Date(taskDate.Year(), taskDate.Month(), taskDate.Day(), 0, 0, 0, 0, taskDate.Location())
+
+	// Если есть правило повторения, вычисляем следующую дату
 	if task.Repeat != "" {
-		// Проверяем корректность правила и получаем следующую дату
-		next, err := NextDate(now, task.Date, task.Repeat)
+		next, err := NextDate(today, task.Date, task.Repeat)
 		if err != nil {
 			return fmt.Errorf("некорректное правило повторения: %v", err)
 		}
-		// Обновляем дату на следующую
 		task.Date = next
 	} else {
-		// Если правила повторения нет, проверяем что дата не в прошлом
-		if !afterNow(t, now) {
-			return fmt.Errorf("дата не может быть в прошлом")
+		// Для задач БЕЗ повторения: если дата в прошлом, устанавливаем сегодняшнюю дату
+		if taskDate.Before(today) {
+			task.Date = today.Format("20060102")
 		}
 	}
 
 	return nil
-}
-
-// afterNow проверяет, что дата t после now (включая сегодняшний день)
-func afterNow(t time.Time, now time.Time) bool {
-	// Приводим к началу дня для корректного сравнения дат без времени
-	t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-
-	return !t.Before(now)
 }
 
 // writeJSON записывает данные в ответ в формате JSON

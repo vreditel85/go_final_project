@@ -74,14 +74,15 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 		return "", fmt.Errorf("некорректный формат исходной даты: %v", err)
 	}
 
-	// Приводим время к началу дня для корректного сравнения
+	// Нормализуем время
 	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, startDate.Location())
 
+	// Обрабатываем правила повторения
 	switch {
 	case strings.HasPrefix(repeat, "d "):
 		// Ежедневное повторение с интервалом
-		parts := strings.Fields(repeat)
+		parts := strings.Split(repeat, " ")
 		if len(parts) != 2 {
 			return "", fmt.Errorf("некорректный формат правила 'd': %s", repeat)
 		}
@@ -95,22 +96,42 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 			return "", fmt.Errorf("число дней должно быть от 1 до 400: %d", days)
 		}
 
-		// Вычисляем следующую дату
+		// Вычисляем от исходной даты, но убеждаемся, что результат после now
 		nextDate := startDate
 		for !nextDate.After(now) {
 			nextDate = nextDate.AddDate(0, 0, days)
 		}
 		return nextDate.Format("20060102"), nil
 
-	case strings.HasPrefix(repeat, "y"):
+	case repeat == "y":
 		// Ежегодное повторение
 		nextDate := startDate
+
+		// Если дата уже в будущем, возвращаем её
+		if nextDate.After(now) {
+			return nextDate.Format("20060102"), nil
+		}
+
+		// Иначе добавляем годы пока не получим дату в будущем
 		for !nextDate.After(now) {
 			nextDate = nextDate.AddDate(1, 0, 0)
+
+			// Обработка 29 февраля для невисокосных годов
+			if startDate.Month() == 2 && startDate.Day() == 29 {
+				if !isLeapYear(nextDate.Year()) {
+					// Если год не високосный, устанавливаем на 28 февраля
+					nextDate = time.Date(nextDate.Year(), 2, 28, 0, 0, 0, 0, nextDate.Location())
+				}
+			}
 		}
 		return nextDate.Format("20060102"), nil
 
 	default:
 		return "", fmt.Errorf("неподдерживаемый формат правила повторения: %s", repeat)
 	}
+}
+
+// isLeapYear проверяет, является ли год високосным
+func isLeapYear(year int) bool {
+	return year%4 == 0 && (year%100 != 0 || year%400 == 0)
 }
