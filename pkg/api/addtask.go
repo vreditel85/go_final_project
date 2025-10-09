@@ -175,6 +175,7 @@ func checkDate(task *db.Task) error {
 	// Если дата пустая, устанавливаем текущую дату
 	if task.Date == "" {
 		task.Date = today.Format("20060102")
+		return nil
 	}
 
 	// Проверяем корректность формата даты
@@ -186,8 +187,14 @@ func checkDate(task *db.Task) error {
 	// Нормализуем taskDate (убираем время)
 	taskDate = time.Date(taskDate.Year(), taskDate.Month(), taskDate.Day(), 0, 0, 0, 0, taskDate.Location())
 
-	// Если есть правило повторения, вычисляем следующую дату
+	// Если есть правило повторения
 	if task.Repeat != "" {
+		// Если дата сегодня или в будущем, оставляем как есть
+		if !taskDate.Before(today) {
+			return nil
+		}
+
+		// Если дата в прошлом, вычисляем следующую дату
 		next, err := NextDate(today, task.Date, task.Repeat)
 		if err != nil {
 			return fmt.Errorf("некорректное правило повторения: %v", err)

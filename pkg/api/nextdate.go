@@ -96,34 +96,48 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 			return "", fmt.Errorf("число дней должно быть от 1 до 400: %d", days)
 		}
 
-		// Вычисляем от исходной даты, но убеждаемся, что результат после now
-		nextDate := startDate
-		for !nextDate.After(now) {
+		// ВСЕГДА начинаем с startDate + интервал
+		nextDate := startDate.AddDate(0, 0, days)
+
+		// Если nextDate все еще не после now, продолжаем прибавлять
+		for nextDate.Before(now) || nextDate.Equal(now) {
 			nextDate = nextDate.AddDate(0, 0, days)
 		}
 		return nextDate.Format("20060102"), nil
 
 	case repeat == "y":
-		// Ежегодное повторение
+		// Ежегодное повторение - ВСЕГДА прибавляем минимум 1 год
 		nextDate := startDate
 
-		// Если дата уже в будущем, возвращаем её
-		if nextDate.After(now) {
-			return nextDate.Format("20060102"), nil
+		// ВСЕГДА прибавляем минимум 1 год
+		nextYear := nextDate.Year() + 1
+
+		// Обработка 29 февраля
+		if nextDate.Month() == 2 && nextDate.Day() == 29 {
+			if isLeapYear(nextYear) {
+				nextDate = time.Date(nextYear, 2, 29, 0, 0, 0, 0, nextDate.Location())
+			} else {
+				nextDate = time.Date(nextYear, 3, 1, 0, 0, 0, 0, nextDate.Location())
+			}
+		} else {
+			nextDate = time.Date(nextYear, nextDate.Month(), nextDate.Day(), 0, 0, 0, 0, nextDate.Location())
 		}
 
-		// Иначе добавляем годы пока не получим дату в будущем
-		for !nextDate.After(now) {
-			nextDate = nextDate.AddDate(1, 0, 0)
+		// Если nextDate все еще не после now, продолжаем прибавлять годы
+		for nextDate.Before(now) || nextDate.Equal(now) {
+			nextYear := nextDate.Year() + 1
 
-			// Обработка 29 февраля для невисокосных годов
-			if startDate.Month() == 2 && startDate.Day() == 29 {
-				if !isLeapYear(nextDate.Year()) {
-					// Если год не високосный, устанавливаем на 28 февраля
-					nextDate = time.Date(nextDate.Year(), 2, 28, 0, 0, 0, 0, nextDate.Location())
+			if nextDate.Month() == 2 && nextDate.Day() == 29 {
+				if isLeapYear(nextYear) {
+					nextDate = time.Date(nextYear, 2, 29, 0, 0, 0, 0, nextDate.Location())
+				} else {
+					nextDate = time.Date(nextYear, 3, 1, 0, 0, 0, 0, nextDate.Location())
 				}
+			} else {
+				nextDate = time.Date(nextYear, nextDate.Month(), nextDate.Day(), 0, 0, 0, 0, nextDate.Location())
 			}
 		}
+
 		return nextDate.Format("20060102"), nil
 
 	default:
@@ -134,4 +148,63 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 // isLeapYear проверяет, является ли год високосным
 func isLeapYear(year int) bool {
 	return year%4 == 0 && (year%100 != 0 || year%400 == 0)
+}
+
+// NextDateForTask вычисляет следующую дату для задач (для добавления и завершения задач)
+func NextDateForTask(now time.Time, date string, repeat string) (string, error) {
+	if repeat == "" {
+		return "", fmt.Errorf("правило повторения не может быть пустым")
+	}
+
+	// Парсим исходную дату
+	startDate, err := time.Parse("20060102", date)
+	if err != nil {
+		return "", fmt.Errorf("некорректный формат исходной даты: %v", err)
+	}
+
+	// Нормализуем время
+	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, startDate.Location())
+
+	// Обрабатываем правила повторения
+	switch {
+	case strings.HasPrefix(repeat, "d "):
+		parts := strings.Split(repeat, " ")
+		if len(parts) != 2 {
+			return "", fmt.Errorf("некорректный формат правила 'd': %s", repeat)
+		}
+
+		days, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return "", fmt.Errorf("некорректное число дней: %s", parts[1])
+		}
+
+		if days < 1 || days > 400 {
+			return "", fmt.Errorf("число дней должно быть от 1 до 400: %d", days)
+		}
+
+		// Для задач: всегда прибавляем интервал от startDate
+		nextDate := startDate.AddDate(0, 0, days)
+		return nextDate.Format("20060102"), nil
+
+	case repeat == "y":
+		nextYear := startDate.Year() + 1
+
+		// Обработка 29 февраля
+		if startDate.Month() == 2 && startDate.Day() == 29 {
+			if isLeapYear(nextYear) {
+				nextDate := time.Date(nextYear, 2, 29, 0, 0, 0, 0, startDate.Location())
+				return nextDate.Format("20060102"), nil
+			} else {
+				nextDate := time.Date(nextYear, 3, 1, 0, 0, 0, 0, startDate.Location())
+				return nextDate.Format("20060102"), nil
+			}
+		} else {
+			nextDate := time.Date(nextYear, startDate.Month(), startDate.Day(), 0, 0, 0, 0, startDate.Location())
+			return nextDate.Format("20060102"), nil
+		}
+
+	default:
+		return "", fmt.Errorf("неподдерживаемый формат правила повторения: %s", repeat)
+	}
 }
