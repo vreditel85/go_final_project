@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-var DB *sql.DB
+var db *sql.DB
 
 const schema string = `
 CREATE TABLE scheduler (
@@ -28,20 +28,20 @@ func Init(dbFile string) error {
 		fmt.Printf("Файл %s не существует, создаем новую базу данных\n", dbFile)
 	}
 
-	// Открываем (или создаем) базу данных
-	DB, err = sql.Open("sqlite", dbFile)
+	// Открываем или создаем базу данных
+	db, err = sql.Open("sqlite", dbFile)
 	if err != nil {
 		return fmt.Errorf("ошибка открытия базы данных: %v", err)
 	}
 
 	// Проверяем соединение с базой данных
-	if err := DB.Ping(); err != nil {
+	if err := db.Ping(); err != nil {
 		return fmt.Errorf("ошибка подключения к базе данных: %v", err)
 	}
 
 	// Если файл не существовал, создаем таблицу и индекс
 	if install {
-		if _, err := DB.Exec(schema); err != nil {
+		if _, err := db.Exec(schema); err != nil {
 			return fmt.Errorf("ошибка создания схемы: %v", err)
 		}
 		fmt.Printf("Таблица scheduler создана в базе данных: %s\n", dbFile)
@@ -61,8 +61,8 @@ func main() {
 
 	// Закрытие базы данных при завершении программы
 	defer func() {
-		if DB != nil {
-			err := DB.Close()
+		if db != nil {
+			err := db.Close()
 			if err != nil {
 				return
 			}
@@ -75,8 +75,8 @@ func main() {
 
 // Close закрывает соединение с базой данных
 func Close() error {
-	if DB != nil {
-		return DB.Close()
+	if db != nil {
+		return db.Close()
 	}
 	return nil
 }

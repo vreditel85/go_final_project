@@ -1,13 +1,11 @@
 package api
 
-import (
-	"net/http"
-)
+import "net/http"
 
 // Init регистрирует все обработчики HTTP
 func Init() {
-	http.HandleFunc("/api/nextdate", nextDateHandler)
-	http.HandleFunc("/api/task", taskHandler)
-	http.HandleFunc("/api/tasks", tasksHandler)
-	http.HandleFunc("/api/task/done", taskDoneHandler) // новый обработчик для завершения задач
+	http.HandleFunc("/api/nextdate", CORSMiddleware(nextDateHandler))
+	http.HandleFunc("/api/task", CORSMiddleware(taskHandler))
+	http.HandleFunc("/api/tasks", CORSMiddleware(tasksHandler))
+	http.HandleFunc("/api/task/done", CORSMiddleware(taskDoneHandler))
 }

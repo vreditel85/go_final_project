@@ -10,8 +10,12 @@ type TasksResp struct {
 	Tasks []*db.Task `json:"tasks"`
 }
 
+// Лимит получаемых задач для tasksHandler
+const limit = 50
+
 // tasksHandler обрабатывает запрос на получение списка задач
 func tasksHandler(w http.ResponseWriter, r *http.Request) {
+
 	// Проверяем метод запроса
 	if r.Method != http.MethodGet {
 		jsonError(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
@@ -19,7 +23,7 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Получаем задачи из базы данных
-	tasks, err := db.Tasks(50) // ограничиваем 50 задачами
+	tasks, err := db.Tasks(limit) // ограничиваем 50 задачами
 	if err != nil {
 		jsonError(w, "Ошибка при получении задач: "+err.Error(), http.StatusInternalServerError)
 		return
